@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Password Checker</title>
+<style>
+    /* Basic styling */
+    body {
+        font-family: Arial, sans-serif;
+    }
+    .container {
+        max-width: 600px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+    input[type="text"],
+    input[type="password"] {
+        width: 100%;
+        padding: 10px;
+        margin-bottom: 10px;
+        box-sizing: border-box;
+    }
+    button {
+        padding: 10px 20px;
+      
+      
+        border: none;
+        cursor: pointer;
+        margin-right: 10px;
+    }
+  
+    .password-list {
+        margin-top: 20px;
+    }
+</style>
+</head>
+<body>
+<div class="container">
+    <h2>Password Keeper</h2>
+   
+    <div>
+        <p>Total Passwords: <span id="totalCount">0</span></p>
+    </div>
+
+    <label for="gmail">Gmail:</label>
+    <input type="text" id="gmail" placeholder="Enter your Gmail">
+
+    <label for="password">Password:</label>
+    <input type="password" id="password" placeholder="Enter your password">
+
+    <button onclick="addPassword()">Add</button>
+
+    <div class="password-list" id="passwordList">
+        <h3>All Passwords</h3>
+        <ul id="allPasswords"></ul>
+    </div>
+</div>
+
+<script>
+    // CRUD CRUD API endpoint
+    const apiUrl = 'https://crudcrud.com/api/3e4cf4c94f3142a29bf85158705dbbcc';
+
+    let totalCount = 0; // Initialize total password count
+
+    // Function to add a password
+    async function addPassword() {
+        var gmail = document.getElementById("gmail").value.trim();
+        var password = document.getElementById("password").value.trim();
+        
+        if (gmail === '' || password === '') {
+            alert("Please fill in both Gmail and Password fields.");
+            return;
+        }
+
+        try {
+            const response = await fetch(apiUrl + '/passwords', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    gmail: gmail,
+                    password: password
+                })
+            });
+
+            const data = await response.json();
+            console.log('Password added:', data);
+
+            // Increment total password count
+            increaseCount();
+
+            // Clear input fields after adding password
+            document.getElementById("gmail").value = "";
+            document.getElementById("password").value = "";
+
+            // Fetch all passwords after adding
+            fetchPasswords();
+        } catch (error) {
+            console.error('Error adding password:', error);
+            alert('An error occurred while adding password. Please try again.');
+        }
+    }
+
+    // Function to fetch all passwords
+    async function fetchPasswords() {
+        try {
+            const response = await fetch(apiUrl + '/passwords');
+            const data = await response.json();
+
+            const passwordList = document.getElementById('allPasswords');
+            passwordList.innerHTML = ''; // Clear existing list
+
+            if (Array.isArray(data) && data.length > 0) {
+                data.forEach(password => {
+                    const listItem = document.createElement('li');
+                    listItem.textContent = password.gmail + ' - ' + password.password;
+
+                    // Add edit button
+                    const editButton = document.createElement('button');
+                    editButton.textContent = 'Edit';
+                    editButton.onclick = () => promptAndUpdatePassword(password._id, listItem); // Pass ID and listItem
+                    listItem.appendChild(editButton);
+
+                    // Add delete button
+                    const deleteButton = document.createElement('button');
+                    deleteButton.textContent = 'Delete';
+                    deleteButton.onclick = () => deleteEntity('passwords', password._id, listItem); // Pass resource and id
+                    listItem.appendChild(deleteButton);
+
+                    passwordList.appendChild(listItem);
+                });
+            } else {
+                const noPasswordsMessage = document.createElement('li');
+                noPasswordsMessage.textContent = 'No passwords found.';
+                passwordList.appendChild(noPasswordsMessage);
+            }
+        } catch (error) {
+            console.error('Error fetching passwords:', error);
+            alert('An error occurred while fetching passwords. Please try again.');
+        }
+    }
+
+    // Function to prompt user for new password and update the password
+    async function promptAndUpdatePassword(id, listItem) {
+        const newPassword = prompt('Enter new password:', listItem.textContent.split(' - ')[1]);
+    
+        if (newPassword === null) {
+            return; // User canceled
+        }
+    
+        // Retrieve email value from the form input
+        const email = listItem.textContent.split(' - ')[0];
+                console.log(email+"value???");
+    
+        try {
+            await updateEntity('passwords', id, { gmail: email, password: newPassword }); // Call updateEntity with email and new password
+        } catch (error) {
+            console.error('Error updating password:', error);
+            alert('An error occurred while updating password. Please try again.');
+        }
+    }
+    
+    // Function to update an entity with JSON payload
+    async function updateEntity(resource, id, payload) {
+        try {
+            const response = await fetch(apiUrl + '/' + resource + '/' + id, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            });
+    
+            if (response.ok) {
+                console.log('Entity updated successfully');
+                // Fetch all passwords after updating
+                fetchPasswords();
+            } else {
+                throw new Error('Failed to update entity');
+            }
+        } catch (error) {
+            console.error('Error updating entity:', error);
+            alert('An error occurred while updating the entity. Please try again.');
+        }
+    }
+    
+
+    // Function to delete an entity
+    async function deleteEntity(resource, id, listItem) {
+        if (!confirm('Are you sure you want to delete this entity?')) {
+            return;
+        }
+    
+        try {
+            const response = await fetch(apiUrl + '/' + resource + '/' + id, {
+                method: 'DELETE'
+            });
+    
+            if (response.ok) {
+                console.log('Entity deleted successfully');
+                // Decrement total entity count (if applicable)
+                totalCount--;
+                document.getElementById('totalCount').textContent = totalCount;
+    
+                // Remove the list item from the DOM
+                listItem.remove();
+            } else {
+                throw new Error('Failed to delete entity');
+            }
+        } catch (error) {
+            console.error('Error deleting entity:', error);
+            alert('An error occurred while deleting the entity. Please try again.');
+        }
+    }
+    
+    // Function to increase count
+    function increaseCount() {
+        totalCount++;
+        document.getElementById('totalCount').textContent = totalCount;
+    }
+
+    // Initial fetch of passwords when the page loads
+    fetchPasswords();
+</script>
+</body>
+</html>
